@@ -1,8 +1,9 @@
 #include <stdio.h>
+#pragma warning(disable:4996)
 
-unsigned char plain_text[17];
+unsigned char plain_text[8] = "ABCDEFGH";
 unsigned char cipher_text[17];
-int key[16];
+unsigned char key[17] = "0f1571c947d9e859";
 
 unsigned char Initial_Permutation[64] = { 58,50,42,34,26,18,10,2,
 60,52,44,36,28,20,12,4,
@@ -105,11 +106,15 @@ unsigned char SBox[8][4][16] = {
 	}
 };
 
-int Decrypt(int plain_text) {
+int Decrypt() {
 	return 0;
 }
 
-int Encrypt(int plain_text) {
+int Encrypt() {
+	unsigned char temp_binary[8][8];
+	for (int i = 0; i < 8; i++) {
+		printf("%b", plain_text[i]);
+	}
 	return 0;
 }
 
@@ -122,19 +127,19 @@ int main(void)
 	printf("3. Exit\n");
 	printf("=========================================\n");
 	printf("Select Menu : ");
-	scanf("%s", &c);
+	scanf("%d", &c);
 
 	switch (c) {
 	case 1:
 		printf("Input Plain Text : ");
-		scanf("%s", &plain_text);
-		Encrypt(plain_text);
+		//scanf("%s", &plain_text);
+		Encrypt();
 		break;
 
 	case 2:
 		printf("Input Plain Text : ");
-		scanf("%s", &plain_text);
-		Decrypt(plain_text);
+		//scanf("%s", &plain_text);
+		Decrypt();
 		break;
 
 	case 3:
