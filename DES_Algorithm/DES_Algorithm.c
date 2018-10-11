@@ -1,11 +1,14 @@
 #include <stdio.h>
+#include <malloc.h>
+#include <string.h>
 #pragma warning(disable:4996)
 
-unsigned char plain_text[8] = "ABCDEFGH";
-unsigned char cipher_text[17];
-unsigned char key[17] = "0f1571c947d9e859";
+//unsigned char plain_text[8] = "ILOVEYOU";
+unsigned char plain_text[16] = "02468ACEECA86420";
+unsigned char cipher_text[8];
+unsigned char key[16] = "0F1571C947D9E859";
 
-unsigned char Initial_Permutation[64] = { 58,50,42,34,26,18,10,2,
+unsigned char initial_permutation[64] = { 58,50,42,34,26,18,10,2,
 60,52,44,36,28,20,12,4,
 62,54,46,38,30,22,14,6,
 64,56,48,40,32,24,16,8,
@@ -14,7 +17,7 @@ unsigned char Initial_Permutation[64] = { 58,50,42,34,26,18,10,2,
 61,53,45,37,29,21,13,5,
 63,55,47,39,31,23,15,7 };
 
-unsigned char Inverse_Initial_Permutation[64] = { 40,8,48,16,56,24,64,32,
+unsigned char inverse_initial_permutation[64] = { 40,8,48,16,56,24,64,32,
 39,7,47,15,55,23,63,31,
 38,6,46,14,54,22,62,30,
 37,5,45,13,53,21,61,29,
@@ -23,7 +26,7 @@ unsigned char Inverse_Initial_Permutation[64] = { 40,8,48,16,56,24,64,32,
 34,2,42,10,50,18,58,26,
 33,1,41,9,49,17,57,25 };
 
-unsigned char Extension[48] = { 32,1,2,3,4,5,
+unsigned char expansion_permutation[48] = { 32,1,2,3,4,5,
 4,5,6,7,8,9,
 8,9,10,11,12,13,
 12,13,14,15,16,17,
@@ -32,30 +35,32 @@ unsigned char Extension[48] = { 32,1,2,3,4,5,
 24,25,26,27,28,29,
 28,29,30,31,32,1 };
 
-unsigned char Permutation[32] = { 16,7,20,21,29,12,28,17,1,15,23,26,5,18,31,10,
+unsigned char permutation[32] = { 16,7,20,21,29,12,28,17,1,15,23,26,5,18,31,10,
 2,8,24,14,32,27,3,9,19,13,30,6,22,11,4,25 };
 
-unsigned char Permutation_Choice_1[8][7] = {
-	{ 57,49,41,33,25,17,9 },
-{ 1,58,50,42,34,26,18 },
-{ 10,2,59,51,43,35,27 },
-{ 19,11,3,60,52,44,36 },
-{ 63,55,47,39,31,23,15 },
-{ 7,62,54,46,38,30,22 },
-{ 14,6,61,53,45,37,29 },
-{ 21,13,5,28,20,12,4 }
+unsigned char permutation_choice_1[56] = {
+	57,49,41,33,25,17,9,
+	1,58,50,42,34,26,18,
+	10,2,59,51,43,35,27,
+	19,11,3,60,52,44,36,
+	63,55,47,39,31,23,15,
+	7,62,54,46,38,30,22,
+	14,6,61,53,45,37,29,
+	21,13,5,28,20,12,4
 };
 
-unsigned char Permutation_Choice_2[6][8] = {
-	{ 14,17,11,24,1,5,3,28 },
-{ 15,6,21,10,23,19,12,4 },
-{ 26,8,16,7,27,20,13,2 },
-{ 41,52,31,37,47,55,30,40 },
-{ 51,45,33,48,44,49,39,56 },
-{ 34,53,46,42,50,36,29,32 }
+unsigned char permutation_choice_2[48] = {
+	14,17,11,24,1,5,3,28,
+	15,6,21,10,23,19,12,4,
+	26,8,16,7,27,20,13,2,
+	41,52,31,37,47,55,30,40,
+	51,45,33,48,44,49,39,56,
+	34,53,46,42,50,36,29,32
 };
 
-unsigned char SBox[8][4][16] = {
+unsigned char shift_key[16] = { 1,1,2,2,2,2,2,2,1,2,2,2,2,2,2,1 };
+
+unsigned char sBox[8][4][16] = {
 	{
 		{ 14,4,13,1,2,15,11,8,3,10,6,12,5,9,0,7 },
 { 0,15,7,4,14,2,13,1,10,6,12,11,9,5,3,8 },
@@ -105,16 +110,188 @@ unsigned char SBox[8][4][16] = {
 { 2,1,14,7,4,10,8,13,15,12,9,0,3,5,6,11 }
 	}
 };
+void HextoBinary(unsigned char hex[], unsigned char binary[]) {
+	unsigned char temp;
+	for (int i = 0; i < 16; i++) {
+
+		if (hex[i] <= 'F' && hex[i] >= 'A')
+			temp = hex[i] - 55;
+		else
+			temp = hex[i];
+
+		for (int j = 0; j < 4; j++) {
+			binary[i * 4 + 3 - j] = temp % 2;
+			temp /= 2;
+		}
+	}
+}
+
+void BinarytoHex(unsigned char Lbinary[], unsigned char Rbinary[], unsigned char asc[]) {
+	for (int i = 0; i < 8; i++) {
+		asc[i] = Lbinary[i * 4 + 0] * 8 + Lbinary[i * 4 + 1] * 4 + Lbinary[i * 4 + 2] * 2 + Lbinary[i * 4 + 3];
+		asc[i + 8] = Rbinary[i * 4 + 0] * 8 + Rbinary[i * 4 + 1] * 4 + Rbinary[i * 4 + 2] * 2 + Rbinary[i * 4 + 3];
+	}
+
+	for (int i = 0; i < 16; i++) {
+		if (asc[i] > 9)
+			asc[i] = asc[i] % 10 + 65;
+		else
+			asc[i] = asc[i] + 48;
+	}
+}
+
+// ASCII 코드를 Binary로 변환
+void ASCtoBinary(unsigned char asc[], unsigned char binary[]) {
+	unsigned char temp;
+	for (int i = 0; i < 8; i++) {
+		temp = asc[i];
+		for (int j = 0; j < 8; j++) {
+			binary[i * 8 + 7 - j] = temp % 2;
+			temp /= 2;
+		}
+	}
+}
+
+void BinarytoASC(unsigned char Lbinary[], unsigned char Rbinary[], unsigned char asc[]) {
+	for (int i = 0; i < 4; i++) {
+		asc[i] = Lbinary[i * 8 + 0] * 128 + Lbinary[i * 8 + 1] * 64 + Lbinary[i * 8 + 2] * 32 + Lbinary[i * 8 + 3] * 16 + Lbinary[i * 8 + 4] * 8 + Lbinary[i * 8 + 5] * 4 + Lbinary[i * 8 + 6] * 2 + Lbinary[i * 8 + 7];
+		asc[i + 4] = Rbinary[i * 8 + 0] * 128 + Rbinary[i * 8 + 1] * 64 + Rbinary[i * 8 + 2] * 32 + Rbinary[i * 8 + 3] * 16 + Rbinary[i * 8 + 4] * 8 + Rbinary[i * 8 + 5] * 4 + Rbinary[i * 8 + 6] * 2 + Rbinary[i * 8 + 7];
+	}
+}
+
+void Generate_Key(unsigned char key[], unsigned char permutation_key[][48]) {
+	unsigned char temp1;
+	unsigned char temp2;
+	unsigned char temp_arr[56];
+	for (int i = 0; i < 56; i++) {
+		temp_arr[i] = key[permutation_choice_1[i] - 1];
+	}
+
+	for (int i = 0; i < 16; i++) {
+		for (int j = 0; j < shift_key[j]; j++) {
+			temp1 = temp_arr[0];
+			temp2 = temp_arr[28];
+			for (int k = 0; k < 27; k++) {
+				temp_arr[k] = temp_arr[k + 1];
+				temp_arr[k+28] = temp_arr[k + 29];
+			}
+			temp_arr[27] = temp1;
+			temp_arr[55] = temp2;
+		}
+
+		for (int j = 0; j < 2; j++) {
+			for (int k = 0; k < 28; k++) {
+				printf("%d",temp_arr[j * 28 + k]);
+			}
+			printf("\n");
+		}
+
+		for (int j = 0; j < 48; j++) {
+			permutation_key[i][j] = temp_arr[permutation_choice_2[j] - 1];
+		}
+	}
+}
+
+void Permuted_Input(unsigned char normal_binary[], unsigned char matrix[], int size) {
+	unsigned char *temp;
+	temp = (unsigned char *)malloc(sizeof(unsigned char) * size);
+	for (int i = 0; i < size; i++) {
+		temp[i] = normal_binary[matrix[i] - 1];
+	}
+	for (int i = 0; i < size; i++) {
+		normal_binary[i] = temp[i];
+	}
+	free(temp);
+}
+
+void Split_Array(unsigned char arr[], unsigned char L[], unsigned char R[]) {
+	for (int i = 0; i < 64; i++) {
+		if (i < 32)
+			L[i] = arr[i];
+		else
+			R[i - 32] = arr[i];
+	}
+}
+
+void F(unsigned char R[], unsigned char R_expansion[], unsigned char temp_arr[], unsigned char permutation_key[][48], int round) {
+	int temp;
+
+	for (int i = 0; i < 48; i++) {
+		R_expansion[i] = R[expansion_permutation[i] - 1];
+		R_expansion[i] ^= permutation_key[round][i];
+	}
+
+	for (int i = 0; i < 8; i++) {
+		int col = R_expansion[i * 6 + 0] * 2 + R_expansion[i * 6 + 5];
+		int row = R_expansion[i * 6 + 1] * 8 + R_expansion[i * 6 + 2] * 4 + R_expansion[i * 6 + 3] * 2 + R_expansion[i * 6 + 4];
+
+		temp = sBox[i][col][row];
+
+		for (int j = 0; j < 4; j++) {
+			temp_arr[i * 4 + 3 - j] = temp % 2;
+			temp = temp / 2;
+		}
+	}
+	Permuted_Input(temp_arr, permutation, 32);;
+}
 
 int Decrypt() {
 	return 0;
 }
 
 int Encrypt() {
-	unsigned char temp_binary[8][8];
-	for (int i = 0; i < 8; i++) {
-		printf("%b", plain_text[i]);
+	unsigned char plain_binary[64]; // ASCII 로 받은 입력을 binary로 받기 위한 배열
+	unsigned char key_binary[64]; // hex로 된 키 값을 binary로 받기 위한 배열
+
+	unsigned char R_expansion[48];
+	unsigned char *L;
+	unsigned char *R;
+	unsigned char *temp_arr;
+
+	unsigned char permutation_key[16][48];
+	int round = 0;
+
+	L = (unsigned char *)malloc(sizeof(unsigned char) * 32);
+	R = (unsigned char *)malloc(sizeof(unsigned char) * 32);
+	temp_arr = (unsigned char *)malloc(sizeof(unsigned char) * 32);
+
+	//ASCtoBinary(plain_text, plain_binary); // ASCII 를 Binary로 변환
+	HextoBinary(plain_text, plain_binary); //Hex 값을 Binary로 변환
+	HextoBinary(key, key_binary); //Hex 값을 Binary로 변환
+
+	Permuted_Input(plain_binary, initial_permutation, 64); //Binary를 IP를 통해 재배열
+	Split_Array(plain_binary, L, R); // 재배열된 바이너리를 32비트씩 나눔
+
+	for (int i = 0; i < 64; i++) {
+		printf("%d", key_binary[i]);
 	}
+	printf("\n");
+	Generate_Key(key_binary, permutation_key);
+	for (int i = 0; i < 16; i++) {
+		for (int j = 0; j < 2; j++) {
+			for (int k = 0; k < 24; k++) {
+				printf("%d",permutation_key[i][j * 24 + k]);
+			}
+			printf("\n");
+		}
+	}
+	for (int round = 0; round < 16; round++) {
+		F(R, R_expansion, temp_arr, permutation_key, round);
+		for (int i = 0; i < 32; i++) {
+			temp_arr[i] ^= L[i];
+		}
+		for (int i = 0; i < 32; i++) {
+			L[i] = R[i];
+			R[i] = temp_arr[i];
+		}
+	}
+	BinarytoHex(L, R, cipher_text);
+	for (int i = 0; i < 16; i++) {
+		printf("%c", cipher_text[i]);
+	}
+	free(L);
+	free(R);
+	free(temp_arr);
 	return 0;
 }
 
@@ -131,7 +308,7 @@ int main(void)
 
 	switch (c) {
 	case 1:
-		printf("Input Plain Text : ");
+		//printf("Input Plain Text : ");
 		//scanf("%s", &plain_text);
 		Encrypt();
 		break;
