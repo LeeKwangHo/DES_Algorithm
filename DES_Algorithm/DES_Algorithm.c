@@ -3,9 +3,9 @@
 
 #pragma warning(disable:4996)
 
-unsigned char plain_text[16];
+unsigned char plain_text[9];
 unsigned char cipher_text[16];
-unsigned char key[16];
+unsigned char key[9];
 
 unsigned char initial_permutation[64] =
 { 58,50,42,34,26,18,10,2,
@@ -118,8 +118,8 @@ void HextoBinary(unsigned char hex[], unsigned char binary[]) {
 	for (int i = 0; i < 16; i++) {
 		if (hex[i] <= 'F' && hex[i] >= 'A')
 			temp = hex[i] - 55;
-		else
-			temp = hex[i];
+		else if(hex[i] >= '0' && hex[i] <= '9')
+			temp = hex[i] - 48;
 
 		for (int j = 0; j < 4; j++) {
 			binary[i * 4 + 3 - j] = temp % 2;
@@ -153,10 +153,9 @@ void ASCtoBinary(unsigned char asc[], unsigned char binary[]) {
 	}
 }
 
-void BinarytoASC(unsigned char Lbinary[], unsigned char Rbinary[], unsigned char asc[]) {
-	for (int i = 0; i < 4; i++) {
-		asc[i] = Lbinary[i * 8 + 0] * 128 + Lbinary[i * 8 + 1] * 64 + Lbinary[i * 8 + 2] * 32 + Lbinary[i * 8 + 3] * 16 + Lbinary[i * 8 + 4] * 8 + Lbinary[i * 8 + 5] * 4 + Lbinary[i * 8 + 6] * 2 + Lbinary[i * 8 + 7];
-		asc[i + 4] = Rbinary[i * 8 + 0] * 128 + Rbinary[i * 8 + 1] * 64 + Rbinary[i * 8 + 2] * 32 + Rbinary[i * 8 + 3] * 16 + Rbinary[i * 8 + 4] * 8 + Rbinary[i * 8 + 5] * 4 + Rbinary[i * 8 + 6] * 2 + Rbinary[i * 8 + 7];
+void BinarytoASC(unsigned char binary[], unsigned char asc[]) {
+	for (int i = 0; i < 8; i++) {
+		asc[i] = binary[i * 8 + 0] * 128 + binary[i * 8 + 1] * 64 + binary[i * 8 + 2] * 32 + binary[i * 8 + 3] * 16 + binary[i * 8 + 4] * 8 + binary[i * 8 + 5] * 4 + binary[i * 8 + 6] * 2 + binary[i * 8 + 7];
 	}
 }
 
@@ -242,8 +241,8 @@ void F(unsigned char R[], unsigned char R_expansion[], unsigned char temp_arr[],
 	Input_Permutation(temp_arr, permutation, 32);
 }
 
-void DES(int mode) {
-	unsigned char input_binary[64]; // ASCII 로 받은 입력을 binary로 받기 위한 배열
+void DecryptDES() {
+	unsigned char plain_binary[64]; // ASCII 로 받은 입력을 binary로 받기 위한 배열
 	unsigned char key_binary[64]; // hex로 된 키 값을 binary로 받기 위한 배열
 	unsigned char cipher_binary[64]; // 암호화된 binary를 받기 위한 배열
 	unsigned char *L;
@@ -256,37 +255,70 @@ void DES(int mode) {
 	R = (unsigned char *)malloc(sizeof(unsigned char) * 32);
 	temp_arr = (unsigned char *)malloc(sizeof(unsigned char) * 32);
 
-	HextoBinary(plain_text, input_binary); //Hex 값을 Binary로 변환
-	HextoBinary(key, key_binary); //Hex 값을 Binary로 변환
+	HextoBinary(cipher_text, cipher_binary); //Hex 값을 Binary로 변환
+	ASCtoBinary(key, key_binary); //Hex 값을 Binary로 변환
 
-	Input_Permutation(input_binary, initial_permutation, 64); //Binary를 IP를 통해 재배열
-	Split_Array(input_binary, L, R); // 재배열된 바이너리를 32비트씩 나눔
+	Input_Permutation(cipher_binary, initial_permutation, 64); //Binary를 IP를 통해 재배열
+	Split_Array(cipher_binary, L, R); // 재배열된 바이너리를 32비트씩 나눔
 
 	Generate_Key(key_binary, permutation_key); //key_binary 값을 이용하여 각 라운드마다 필요한 SubKey 생성
 
-	if (mode == 1) {
-		for (int round = 0; round < 16; round++) {
-			F(R, R_expansion, temp_arr, permutation_key, round);
-			for (int i = 0; i < 32; i++) {
-				temp_arr[i] ^= L[i];
-			}
-			for (int i = 0; i < 32; i++) {
-				L[i] = R[i];
-				R[i] = temp_arr[i];
-			}
+	for (int round = 15; round > -1; round--) {
+		F(R, R_expansion, temp_arr, permutation_key, round);
+		for (int i = 0; i < 32; i++) {
+			temp_arr[i] ^= L[i];
+		}
+		for (int i = 0; i < 32; i++) {
+			L[i] = R[i];
+			R[i] = temp_arr[i];
 		}
 	}
 
-	if (mode == 2) {
-		for (int round = 15; round > -1; round--) {
-			F(R, R_expansion, temp_arr, permutation_key, round);
-			for (int i = 0; i < 32; i++) {
-				temp_arr[i] ^= L[i];
-			}
-			for (int i = 0; i < 32; i++) {
-				L[i] = R[i];
-				R[i] = temp_arr[i];
-			}
+	// 최종적으로 L 과 R 위치를 바꿔 cipher_binary 배열에 저장
+	for (int i = 0; i < 32; i++) {
+		plain_binary[i] = R[i];
+		plain_binary[i + 32] = L[i];
+	}
+
+	Input_Permutation(plain_binary, inverse_initial_permutation, 64); // cipher_binary를 역순열에 적용
+	BinarytoASC(plain_binary, plain_text); //cipher_binary를 Hex값으로 변환
+	printf("Plain Text : %s", plain_text);
+	printf("\n");
+	free(L);
+	free(R);
+	free(temp_arr);
+}
+
+void EncryptDES() {
+	unsigned char plain_binary[64]; // ASCII 로 받은 입력을 binary로 받기 위한 배열
+	unsigned char key_binary[64]; // hex로 된 키 값을 binary로 받기 위한 배열
+	unsigned char cipher_binary[64]; // 암호화된 binary를 받기 위한 배열
+	unsigned char *L;
+	unsigned char *R;
+	unsigned char *temp_arr; // 임시 배열
+	unsigned char R_expansion[48]; //R을 확장한 값을 저장하기 위한 배열
+	unsigned char permutation_key[16][48]; // 각 라운드별를 위해 생성한 SubKey를 저장하기 위한 배열
+
+	L = (unsigned char *)malloc(sizeof(unsigned char) * 32);
+	R = (unsigned char *)malloc(sizeof(unsigned char) * 32);
+	temp_arr = (unsigned char *)malloc(sizeof(unsigned char) * 32);
+
+	ASCtoBinary(plain_text, plain_binary); //Hex 값을 Binary로 변환
+	ASCtoBinary(key, key_binary); //Hex 값을 Binary로 변환
+
+	Input_Permutation(plain_binary, initial_permutation, 64); //Binary를 IP를 통해 재배열
+	Split_Array(plain_binary, L, R); // 재배열된 바이너리를 32비트씩 나눔
+
+	Generate_Key(key_binary, permutation_key); //key_binary 값을 이용하여 각 라운드마다 필요한 SubKey 생성
+
+	for (int round = 0; round < 16; round++) {
+		F(R, R_expansion, temp_arr, permutation_key, round);
+		for (int i = 0; i < 32; i++) {
+			temp_arr[i] ^= L[i];
+		}
+		for (int i = 0; i < 32; i++) {
+			L[i] = R[i];
+			R[i] = temp_arr[i];
 		}
 	}
 
@@ -299,6 +331,7 @@ void DES(int mode) {
 	Input_Permutation(cipher_binary, inverse_initial_permutation, 64); // cipher_binary를 역순열에 적용
 	BinarytoHex(cipher_binary, cipher_text); //cipher_binary를 Hex값으로 변환
 
+	printf("Cipher Text : ");
 	for (int i = 0; i < 16; i++) {
 		printf("%c", cipher_text[i]);
 	}
@@ -308,6 +341,9 @@ void DES(int mode) {
 	free(R);
 	free(temp_arr);
 }
+
+
+
 
 int main(void)
 {
@@ -324,18 +360,18 @@ int main(void)
 	switch (c) {
 	case 1:
 		printf("Input Text : ");
-		scanf("%s", &plain_text);
+		scanf("%s", plain_text);
 		printf("Input Key : ");
-		scanf("%s", &key);
-		DES(c);
+		scanf("%s", key);
+		EncryptDES();
 		break;
 
 	case 2:
 		printf("Input Text : ");
-		scanf("%s", &plain_text);
+		scanf("%s", cipher_text);
 		printf("Input Key : ");
-		scanf("%s", &key);
-		DES(c);
+		scanf("%s", key);
+		DecryptDES();
 		break;
 
 	case 3:
